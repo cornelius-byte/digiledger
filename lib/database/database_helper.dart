@@ -21,17 +21,44 @@ class DatabaseHelper {
 
     return await openDatabase(
       fullPath,
-      version: 1,
+      version: 3,
       onConfigure: _onConfigure,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+      onOpen: (db) async {
+        // Migration safeguard: check if budgets table exists and has the new interval_type column
+        try {
+          var tableInfo = await db.rawQuery("PRAGMA table_info(budgets)");
+          bool hasIntervalType = tableInfo.any((column) => column['name'] == 'interval_type');
+          if (tableInfo.isNotEmpty && !hasIntervalType) {
+            await db.execute('DROP TABLE IF EXISTS budgets');
+          }
+        } catch (_) {}
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS budgets (
+            budget_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            interval_type TEXT UNIQUE NOT NULL,
+            amount REAL NOT NULL,
+            threshold_percentage INTEGER NOT NULL
+          )
+        ''');
+
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+          )
+        ''');
+      },
     );
   }
 
-  Future _onConfigure(Database db) async {
+  Future<void> _onConfigure(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
-  Future _createDB(Database db, int version) async {
+  Future<void> _createDB(Database db, int version) async {
     // 1. Categories Master Table
     await db.execute('''
       CREATE TABLE categories (
@@ -58,22 +85,75 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. Budgets Constraint Table (3NF Foreign Key to categories)
+    // 3. Budgets Constraint Table
     await db.execute('''
       CREATE TABLE budgets (
         budget_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        monthly_limit_amount REAL NOT NULL,
-        category_id INTEGER,
-        FOREIGN KEY (category_id) REFERENCES categories (category_id)
-          ON DELETE CASCADE
+        interval_type TEXT UNIQUE NOT NULL,
+        amount REAL NOT NULL,
+        threshold_percentage INTEGER NOT NULL
       )
     ''');
 
-    // Insert some default categories to start with
-    await db.insert('categories', {'category_name': 'Food & Dining', 'icon': 'fastfood', 'color_tag': '#FFC6C7'});
+    // 4. Settings Key-Value Table for Persistence
+    await db.execute('''
+      CREATE TABLE settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+
+    // Insert default categories
+    await db.insert('categories', {'category_name': 'Food', 'icon': 'fastfood', 'color_tag': '#FFC6C7'});
     await db.insert('categories', {'category_name': 'Transport', 'icon': 'directions_car', 'color_tag': '#BCE6FF'});
-    await db.insert('categories', {'category_name': 'Utilities', 'icon': 'bolt', 'color_tag': '#D0F4DE'});
-    await db.insert('categories', {'category_name': 'Income', 'icon': 'work', 'color_tag': '#E8A87C'});
+    await db.insert('categories', {'category_name': 'Stationery', 'icon': 'edit', 'color_tag': '#D0F4DE'});
+    await db.insert('categories', {'category_name': 'Clothes', 'icon': 'checkroom', 'color_tag': '#E8A87C'});
+    await db.insert('categories', {'category_name': 'Electronics', 'icon': 'devices', 'color_tag': '#FFF3BF'});
+    await db.insert('categories', {'category_name': 'Health', 'icon': 'medical_services', 'color_tag': '#FFC6C7'});
+    await db.insert('categories', {'category_name': 'Groceries', 'icon': 'shopping_cart', 'color_tag': '#BCE6FF'});
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 3) {
+      await db.execute('DROP TABLE IF EXISTS budgets');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS budgets (
+          budget_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          interval_type TEXT UNIQUE NOT NULL,
+          amount REAL NOT NULL,
+          threshold_percentage INTEGER NOT NULL
+        )
+      ''');
+    }
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )
+    ''');
+  }
+
+  // --- SETTINGS PREFERENCES ---
+  Future<void> saveSetting(String key, String value) async {
+    final db = await database;
+    await db.insert(
+      'settings',
+      {'key': key, 'value': value},
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<String?> getSetting(String key) async {
+    final db = await database;
+    final results = await db.query(
+      'settings',
+      where: 'key = ?',
+      whereArgs: [key],
+    );
+    if (results.isNotEmpty) {
+      return results.first['value'] as String?;
+    }
+    return null;
   }
 
   // --- CRUD METHODS FOR TRANSACTIONS ---
@@ -117,7 +197,6 @@ class DatabaseHelper {
   Future<String> exportTransactionsToCSV() async {
     final db = await database;
 
-    // Let Dart infer the type automatically—no brackets needed!
     final maps = await db.query('transactions');
 
     // Build CSV content header
@@ -128,8 +207,8 @@ class DatabaseHelper {
     // Loop through rows and format as CSV text
     for (var row in maps) {
       rows.add(
-          '${row['id']},${row['amount']},${row['type']},${row['date']},'
-              '"${row['merchant'] ?? ''}","${row['notes'] ?? ''}",${row['category_id']}'
+        '${row['transaction_id'] ?? row['id']},${row['amount']},${row['type']},${row['date']},'
+        '"${row['merchant'] ?? ''}","${row['notes'] ?? ''}",${row['category_id']}'
       );
     }
 
@@ -145,9 +224,42 @@ class DatabaseHelper {
     return path;
   }
 
-  Future<List> getFilteredTransactions({
+  Future<int> importTransactionsFromCSV(String csvContent) async {
+    final db = await database;
+    final lines = csvContent.split('\n');
+    int importedCount = 0;
+
+    for (int i = 1; i < lines.length; i++) {
+      final line = lines[i].trim();
+      if (line.isEmpty) continue;
+
+      final parts = line.split(',');
+      if (parts.length >= 4) {
+        try {
+          final amount = double.tryParse(parts[1]) ?? 0.0;
+          final type = parts[2];
+          final date = parts[3];
+          final merchant = parts.length > 4 ? parts[4].replaceAll('"', '') : '';
+          final notes = parts.length > 5 ? parts[5].replaceAll('"', '') : '';
+          final categoryId = parts.length > 6 ? int.tryParse(parts[6]) : null;
+
+          await db.insert('transactions', {
+            'amount': amount,
+            'type': type,
+            'date': date,
+            'merchant': merchant,
+            'notes': notes,
+            'category_id': categoryId,
+          });
+          importedCount++;
+        } catch (_) {}
+      }
+    }
+    return importedCount;
+  }
+
+  Future<List<Map<String, dynamic>>> getFilteredTransactions({
     String? query,
-    String? type,
     int? categoryId,
   }) async {
     final db = await database;
@@ -162,12 +274,6 @@ class DatabaseHelper {
       whereArgs.add('%${query.trim()}%');
     }
 
-    // Filter by type (e.g., 'Expense' or 'Income')
-    if (type != null && type != 'All') {
-      conditions.add("type = ?");
-      whereArgs.add(type);
-    }
-
     // Filter by category if a specific category is selected (non-zero)
     if (categoryId != null && categoryId != 0) {
       conditions.add("category_id = ?");
@@ -177,18 +283,64 @@ class DatabaseHelper {
     String? whereClause = conditions.isNotEmpty ? conditions.join(' AND ') : null;
 
     final maps = await db.query(
-    'transactions',
-    where: whereClause,
-    whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-    orderBy: 'date DESC',
+      'transactions',
+      where: whereClause,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      orderBy: 'date DESC',
     );
 
     return maps;
   }
 
-  // 2. Helper to fetch all categories for the filter row
-  Future<List> getCategories() async {
+  // Helper to fetch all categories for the filter row
+  Future<List<Map<String, dynamic>>> getCategories() async {
     final db = await database;
     return await db.query('categories');
+  }
+
+  Future<int> insertCategory(String categoryName, {String icon = 'label', String colorTag = '#D0F4DE'}) async {
+    final db = await database;
+    return await db.insert('categories', {
+      'category_name': categoryName,
+      'icon': icon,
+      'color_tag': colorTag,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<int> deleteCategory(int categoryId) async {
+    final db = await database;
+    return await db.delete(
+      'categories',
+      where: 'category_id = ?',
+      whereArgs: [categoryId],
+    );
+  }
+
+  // Save or update a budget for a given interval ('Weekly', 'Monthly', 'Yearly')
+  Future<void> saveOrUpdateBudget(String interval, double amount, int threshold) async {
+    final db = await database;
+    await db.insert(
+      'budgets',
+      {
+        'interval_type': interval,
+        'amount': amount,
+        'threshold_percentage': threshold,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  // Retrieve budget details for a specific interval
+  Future<Map<String, dynamic>?> getBudget(String interval) async {
+    final db = await database;
+    final results = await db.query(
+      'budgets',
+      where: 'interval_type = ?',
+      whereArgs: [interval],
+    );
+    if (results.isNotEmpty) {
+      return results.first;
+    }
+    return null;
   }
 }

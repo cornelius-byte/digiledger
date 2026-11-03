@@ -128,19 +128,26 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                 const SizedBox(height: 16),
                 Text('Warning Threshold:', style: ThemeService.getAppTextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [25, 50, 75, 90].map((pct) {
-                    return ChoiceChip(
-                      label: Text('$pct%', style: ThemeService.getAppTextStyle(fontSize: 16)),
-                      selected: tempThreshold == pct,
-                      onSelected: (selected) {
-                        setDialogState(() {
-                          tempThreshold = pct;
-                        });
-                      },
-                    );
-                  }).toList(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [25, 50, 75, 90].map((pct) {
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6.0),
+                        child: ChoiceChip(
+                          visualDensity: VisualDensity.compact,
+                          labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+                          label: Text('$pct%', style: ThemeService.getAppTextStyle(fontSize: 14)),
+                          selected: tempThreshold == pct,
+                          onSelected: (selected) {
+                            setDialogState(() {
+                              tempThreshold = pct;
+                            });
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
               ],
             ),

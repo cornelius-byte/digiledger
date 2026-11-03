@@ -38,7 +38,7 @@ class _SplashScreenState extends State<SplashScreen> {
           children: [
             Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 20.0),
                 child: Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -46,7 +46,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     Container(
                       width: double.infinity,
                       constraints: const BoxConstraints(maxWidth: 360),
-                      padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+                      padding: const EdgeInsets.fromLTRB(22, 28, 22, 24),
                       decoration: BoxDecoration(
                         color: const Color(0xFF0C513F), // Dark green notebook cover
                         borderRadius: BorderRadius.circular(32),
@@ -65,7 +65,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           // Inner White Page
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
                             decoration: BoxDecoration(
                               color: Colors.white, // Inner white page
                               borderRadius: BorderRadius.circular(24),
@@ -136,7 +136,7 @@ class _SplashScreenState extends State<SplashScreen> {
                                 Text(
                                   'DigiLedger',
                                   style: GoogleFonts.patrickHand(
-                                    fontSize: 36,
+                                    fontSize: 34,
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF1E1E1E),
                                   ),
@@ -147,21 +147,21 @@ class _SplashScreenState extends State<SplashScreen> {
                                 Text(
                                   'YOUR MONEY, MADE CLEAR',
                                   style: GoogleFonts.patrickHand(
-                                    fontSize: 13,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: const Color(0xFF0C513F),
-                                    letterSpacing: 1.5,
+                                    letterSpacing: 1.2,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
 
                           // Feature Pill 1: Fully offline (inside notebook card)
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                             decoration: BoxDecoration(
                               color: const Color(0xFFB5E48C),
                               borderRadius: BorderRadius.circular(18),
@@ -171,13 +171,17 @@ class _SplashScreenState extends State<SplashScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Icon(Icons.wifi_off, size: 18, color: Colors.black87),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Fully offline • No account needed',
-                                  style: GoogleFonts.patrickHand(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    'Fully offline • No account needed',
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: GoogleFonts.patrickHand(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -188,7 +192,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           // Feature Pill 2: Private (inside notebook card)
                           Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
                             decoration: BoxDecoration(
                               color: const Color(0xFFFFE5B4),
                               borderRadius: BorderRadius.circular(18),
@@ -198,13 +202,17 @@ class _SplashScreenState extends State<SplashScreen> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 const Icon(Icons.shield_outlined, size: 18, color: Colors.black87),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Private • Stored only on your device',
-                                  style: GoogleFonts.patrickHand(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.black87,
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    'Private • Stored only on your device',
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                    style: GoogleFonts.patrickHand(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
                                   ),
                                 ),
                               ],

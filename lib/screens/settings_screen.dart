@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import '../database/database_helper.dart';
 import '../services/theme_service.dart';
 import 'categories_screen.dart';
@@ -11,7 +12,27 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  int _budgetAlertPercentage = 85;
+  int _budgetAlertPercentage = 75;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedThreshold();
+  }
+
+  Future<void> _loadSavedThreshold() async {
+    try {
+      final savedBudget = await DatabaseHelper.instance.getBudget('Monthly');
+      if (savedBudget != null) {
+        final pct = (savedBudget['threshold_percentage'] as num?)?.toInt();
+        if (pct != null && mounted) {
+          setState(() {
+            _budgetAlertPercentage = pct;
+          });
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -169,13 +190,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             cardTextColor: cardTextColor,
                             borderColor: borderColor,
                             shadowColor: shadowColor,
-                            onTap: () {
-                              Navigator.push(
+                            onTap: () async {
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => const CategoriesScreen(),
                                 ),
                               );
+                              _loadSavedThreshold();
                             },
                           ),
 
@@ -184,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // 7. App Version
                           _buildSettingRow(
                             title: 'App Version',
-                            buttonText: 'v1.0.0',
+                            buttonText: 'v0.72',
                             cardTextColor: cardTextColor,
                             borderColor: borderColor,
                             shadowColor: shadowColor,
@@ -217,17 +239,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final btnTextColor = ThemeService.getTextColorForBackground(btnBgColor);
 
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: ThemeService.getAppTextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: cardTextColor,
+        Flexible(
+          flex: 2,
+          child: Text(
+            title,
+            overflow: TextOverflow.ellipsis,
+            style: ThemeService.getAppTextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: cardTextColor,
+            ),
           ),
         ),
         const SizedBox(width: 4),
-        Expanded(
+        Flexible(
+          flex: 1,
           child: Text(
             ' .....................................................',
             overflow: TextOverflow.clip,
@@ -239,12 +267,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 4),
         InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
+            constraints: const BoxConstraints(maxWidth: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 6.0),
             decoration: BoxDecoration(
               color: btnBgColor,
               borderRadius: BorderRadius.circular(12),
@@ -259,8 +288,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             child: Text(
               '[ $buttonText ]',
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
               style: ThemeService.getAppTextStyle(
-                fontSize: 19,
+                fontSize: 16,
                 fontWeight: FontWeight.bold,
                 color: btnTextColor,
               ),
@@ -277,7 +308,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           'Select App Theme',
-          style: ThemeService.getAppTextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: ThemeService.getAppTextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -285,7 +316,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             return ListTile(
               title: Text(
                 themeOption.displayName,
-                style: ThemeService.getAppTextStyle(fontSize: 20),
+                style: ThemeService.getAppTextStyle(fontSize: 18),
               ),
               trailing: ThemeService.currentTheme.value == themeOption
                   ? const Icon(Icons.check_circle, color: Colors.pink)
@@ -304,23 +335,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _showBudgetAlertSelectionDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: Text(
           'Set Budget Alert Threshold',
-          style: ThemeService.getAppTextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: ThemeService.getAppTextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: [25, 50, 75, 85, 90].map((pct) {
+          children: [25, 50, 75, 90].map((pct) {
             return ListTile(
               title: Text(
                 '$pct%',
-                style: ThemeService.getAppTextStyle(fontSize: 20),
+                style: ThemeService.getAppTextStyle(fontSize: 18),
               ),
               trailing: _budgetAlertPercentage == pct ? const Icon(Icons.check, color: Colors.pink) : null,
-              onTap: () {
+              onTap: () async {
                 setState(() => _budgetAlertPercentage = pct);
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
+
+                // Sync new threshold percentage across all budget intervals in local SQLite database
+                for (var interval in ['Weekly', 'Monthly', 'Yearly']) {
+                  final saved = await DatabaseHelper.instance.getBudget(interval);
+                  final double limit = (saved?['amount'] as num?)?.toDouble() ?? 500.0;
+                  await DatabaseHelper.instance.saveOrUpdateBudget(interval, limit, pct);
+                }
               },
             );
           }).toList(),
@@ -333,11 +371,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final filePath = await DatabaseHelper.instance.exportTransactionsToCSV();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Database exported successfully!\nLocation: $filePath'),
-          duration: const Duration(seconds: 4),
-        ),
+      await Share.shareXFiles(
+        [XFile(filePath)],
+        text: 'Here is my offline-first Digiledger backup CSV file.',
       );
     } catch (e) {
       if (!mounted) return;
@@ -355,20 +391,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: Text(
           'Import Backup Data',
-          style: ThemeService.getAppTextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          style: ThemeService.getAppTextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               'Paste your CSV backup data below:',
-              style: ThemeService.getAppTextStyle(fontSize: 18),
+              style: ThemeService.getAppTextStyle(fontSize: 16),
             ),
             const SizedBox(height: 10),
             TextField(
               controller: csvInputController,
               maxLines: 4,
-              style: ThemeService.getAppTextStyle(fontSize: 18),
+              style: ThemeService.getAppTextStyle(fontSize: 16),
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
                 hintText: 'ID,Amount,Type,Date,Merchant,Notes,CategoryID...',
@@ -379,7 +415,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel', style: ThemeService.getAppTextStyle(fontSize: 18)),
+            child: Text('Cancel', style: ThemeService.getAppTextStyle(fontSize: 16)),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -393,7 +429,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               }
             },
-            child: Text('Import', style: ThemeService.getAppTextStyle(fontSize: 18)),
+            child: Text('Import', style: ThemeService.getAppTextStyle(fontSize: 16)),
           ),
         ],
       ),

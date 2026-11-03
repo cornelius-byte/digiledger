@@ -19,6 +19,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
   int _selectedCategoryId = 0;            // 0 means 'All Categories'
   String _selectedInterval = 'All';       // 'All', 'Weekly', 'Monthly', 'Yearly'
 
+  // Multi-selection state
+  bool _isSelectionMode = false;
+  final Set<int> _selectedTxIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -85,6 +89,287 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
     return grouped;
   }
 
+  void _toggleSelection(int txId) {
+    setState(() {
+      if (_selectedTxIds.contains(txId)) {
+        _selectedTxIds.remove(txId);
+        if (_selectedTxIds.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedTxIds.add(txId);
+      }
+    });
+  }
+
+  Future<bool> _showDeleteConfirmationDialog({required String title, required String content}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (dialogContext, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final borderColor = ThemeService.getBorderColor();
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : const Color(0xFF282836))
+                : Colors.white;
+
+            final textColor = ThemeService.getTextColorForBackground(cardBgColor);
+
+            return AlertDialog(
+              backgroundColor: cardBgColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: borderColor, width: 2.0),
+              ),
+              title: Text(
+                title,
+                style: ThemeService.getAppTextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              content: Text(
+                content,
+                style: ThemeService.getAppTextStyle(
+                  fontSize: 17,
+                  color: textColor.withValues(alpha: 0.9),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text('Cancel', style: ThemeService.getAppTextStyle(fontSize: 17)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                  ),
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: Text(
+                    'Delete',
+                    style: ThemeService.getAppTextStyle(fontSize: 17, color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  Future<void> _deleteSelectedTransactions() async {
+    if (_selectedTxIds.isEmpty) return;
+
+    final confirmed = await _showDeleteConfirmationDialog(
+      title: 'Delete Selected Expenses?',
+      content: 'Are you sure you want to delete ${_selectedTxIds.length} selected expense(s)? This action cannot be undone.',
+    );
+
+    if (confirmed) {
+      await DatabaseHelper.instance.deleteMultipleTransactions(_selectedTxIds.toList());
+      setState(() {
+        _selectedTxIds.clear();
+        _isSelectionMode = false;
+      });
+      await _loadTransactions();
+    }
+  }
+
+  void _showTransactionContextMenu(Map<String, dynamic> tx) {
+    final int txId = (tx['transaction_id'] as num?)?.toInt() ?? 0;
+    final String currentMerchant = tx['merchant'] ?? 'Unknown';
+    final double currentAmount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (modalContext, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final borderColor = ThemeService.getBorderColor();
+            final shadowColor = ThemeService.getShadowColor();
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : const Color(0xFF282836))
+                : const Color(0xFFFFC6C7);
+
+            final textColor = ThemeService.getTextColorForBackground(cardBgColor);
+
+            return Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardBgColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: borderColor, width: 2.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: shadowColor,
+                    offset: const Offset(4, 4),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Expense Options',
+                    style: ThemeService.getAppTextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(Icons.edit, color: Colors.blueAccent),
+                    title: Text(
+                      'Edit Expense',
+                      style: ThemeService.getAppTextStyle(
+                        fontSize: 20,
+                        color: textColor,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(modalContext);
+                      _showEditExpenseDialog(txId, currentMerchant, currentAmount);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete, color: Colors.redAccent),
+                    title: Text(
+                      'Delete Expense',
+                      style: ThemeService.getAppTextStyle(
+                        fontSize: 20,
+                        color: textColor,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(modalContext);
+                      final confirmed = await _showDeleteConfirmationDialog(
+                        title: 'Delete Expense?',
+                        content: 'Are you sure you want to delete this expense for "$currentMerchant"? This action cannot be undone.',
+                      );
+                      if (confirmed) {
+                        await DatabaseHelper.instance.deleteTransaction(txId);
+                        await _loadTransactions();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditExpenseDialog(int txId, String merchant, double amount) {
+    final TextEditingController amountController =
+    TextEditingController(text: amount.toStringAsFixed(2));
+    final TextEditingController merchantController =
+    TextEditingController(text: merchant);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (dialogContext, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final borderColor = ThemeService.getBorderColor();
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : const Color(0xFF282836))
+                : Colors.white;
+
+            final textColor = ThemeService.getTextColorForBackground(cardBgColor);
+
+            return AlertDialog(
+              backgroundColor: cardBgColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: borderColor, width: 2.0),
+              ),
+              title: Text(
+                'Edit Expense',
+                style: ThemeService.getAppTextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: ThemeService.getAppTextStyle(fontSize: 20, color: textColor),
+                    decoration: InputDecoration(
+                      labelText: 'Amount (\$)',
+                      labelStyle: ThemeService.getAppTextStyle(fontSize: 18, color: textColor),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: merchantController,
+                    style: ThemeService.getAppTextStyle(fontSize: 20, color: textColor),
+                    decoration: InputDecoration(
+                      labelText: 'Merchant Name',
+                      labelStyle: ThemeService.getAppTextStyle(fontSize: 18, color: textColor),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text('Cancel', style: ThemeService.getAppTextStyle(fontSize: 18)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC6C7)),
+                  onPressed: () async {
+                    final newAmount = double.tryParse(amountController.text) ?? amount;
+                    final newMerchant = merchantController.text.trim().isEmpty
+                        ? merchant
+                        : merchantController.text.trim();
+
+                    await DatabaseHelper.instance.updateTransaction(
+                      txId,
+                      newAmount,
+                      newMerchant,
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                    await _loadTransactions();
+                  },
+                  child: Text('Save', style: ThemeService.getAppTextStyle(fontSize: 18, color: Colors.black)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -133,44 +418,94 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                           children: [
                             IconButton(
                               icon: Icon(
-                                Icons.arrow_back,
+                                _isSelectionMode ? Icons.close : Icons.arrow_back,
                                 color: ThemeService.getTextColorForBackground(headerPillColor),
                                 size: 26,
                               ),
-                              onPressed: () => Navigator.pop(context),
+                              onPressed: () {
+                                if (_isSelectionMode) {
+                                  setState(() {
+                                    _isSelectionMode = false;
+                                    _selectedTxIds.clear();
+                                  });
+                                } else {
+                                  Navigator.pop(context);
+                                }
+                              },
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              'Transaction History',
+                              _isSelectionMode
+                                  ? '${_selectedTxIds.length} Selected'
+                                  : 'Transaction History',
                               style: ThemeService.getAppTextStyle(
-                                fontSize: 24,
+                                fontSize: 22,
                                 fontWeight: FontWeight.bold,
                                 color: ThemeService.getTextColorForBackground(headerPillColor),
                               ),
                             ),
                           ],
                         ),
-                        IconButton(
-                          icon: Icon(
-                            Icons.download,
-                            color: ThemeService.getTextColorForBackground(headerPillColor),
-                            size: 26,
-                          ),
-                          tooltip: 'Export CSV',
-                          onPressed: () async {
-                            try {
-                              String filePath = await DatabaseHelper.instance.exportTransactionsToCSV();
-                              await Share.shareXFiles(
-                                [XFile(filePath)],
-                                text: 'Here is my offline-first Digiledger backup CSV file.',
-                              );
-                            } catch (e) {
-                              if (!context.mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Export failed: $e')),
-                              );
-                            }
-                          },
+                        Row(
+                          children: [
+                            if (_isSelectionMode && _selectedTxIds.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_forever,
+                                  color: Colors.redAccent,
+                                  size: 28,
+                                ),
+                                tooltip: 'Delete Selected',
+                                onPressed: _deleteSelectedTransactions,
+                              )
+                            else if (!_isSelectionMode) ...[
+                              IconButton(
+                                icon: Icon(
+                                  Icons.download,
+                                  color: ThemeService.getTextColorForBackground(headerPillColor),
+                                  size: 26,
+                                ),
+                                tooltip: 'Export CSV',
+                                onPressed: () async {
+                                  try {
+                                    String filePath =
+                                    await DatabaseHelper.instance.exportTransactionsToCSV();
+                                    await Share.shareXFiles(
+                                      [XFile(filePath)],
+                                      text: 'Here is my offline-first Digiledger backup CSV file.',
+                                    );
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Export failed: $e')),
+                                    );
+                                  }
+                                },
+                              ),
+                              PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: ThemeService.getTextColorForBackground(headerPillColor),
+                                ),
+                                onSelected: (value) {
+                                  if (value == 'select') {
+                                    setState(() {
+                                      _isSelectionMode = true;
+                                    });
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'select',
+                                    child: Text(
+                                      'Select',
+                                      style: ThemeService.getAppTextStyle(fontSize: 18),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
@@ -339,7 +674,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                     },
                                   ),
                                 );
-                              }).toList(),
+                              }),
                             ],
                           ),
                         ),
@@ -386,6 +721,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             ),
 
                           ...groupItems.map((tx) {
+                            final int txId = (tx['transaction_id'] as num?)?.toInt() ?? 0;
+                            final isItemSelected = _selectedTxIds.contains(txId);
+
                             final itemBgColor = isDark
                                 ? (currentTheme == AppThemeOption.cyberpunk2077
                                 ? const Color(0xFF260510)
@@ -401,66 +739,91 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                             final notes = tx['notes'] ?? '';
                             final amount = tx['amount'];
 
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: itemBgColor,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: borderColor, width: 1.8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: shadowColor,
-                                    offset: const Offset(2, 2),
-                                    blurRadius: 0,
+                            return InkWell(
+                              onTap: () {
+                                if (_isSelectionMode) {
+                                  _toggleSelection(txId);
+                                }
+                              },
+                              onLongPress: () {
+                                if (!_isSelectionMode) {
+                                  _showTransactionContextMenu(tx);
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isItemSelected
+                                      ? (isDark ? const Color(0xFF38233C) : const Color(0xFFFFE0E0))
+                                      : itemBgColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: isItemSelected ? Colors.pinkAccent : borderColor,
+                                    width: isItemSelected ? 2.2 : 1.8,
                                   ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: const Color(0xFFFFC6C7),
-                                    radius: 20,
-                                    child: const Icon(Icons.arrow_downward, color: Colors.black, size: 22),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          merchant,
-                                          style: ThemeService.getAppTextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.bold,
-                                            color: itemTextColor,
-                                          ),
-                                        ),
-                                        Text(
-                                          '$dateStr${notes.isNotEmpty ? ' • $notes' : ''}',
-                                          style: ThemeService.getAppTextStyle(
-                                            fontSize: 16,
-                                            color: itemSubTextColor,
-                                          ),
-                                        ),
-                                      ],
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: shadowColor,
+                                      offset: const Offset(2, 2),
+                                      blurRadius: 0,
                                     ),
-                                  ),
-                                  Text(
-                                    '-\$$amount',
-                                    style: ThemeService.getAppTextStyle(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                      color: currentTheme == AppThemeOption.cyberpunk2077 ||
-                                          currentTheme == AppThemeOption.edgerunners
-                                          ? const Color(0xFFFF0055)
-                                          : Colors.redAccent,
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    if (_isSelectionMode)
+                                      Checkbox(
+                                        value: isItemSelected,
+                                        activeColor: Colors.pinkAccent,
+                                        onChanged: (_) => _toggleSelection(txId),
+                                      )
+                                    else
+                                      CircleAvatar(
+                                        backgroundColor: const Color(0xFFFFC6C7),
+                                        radius: 20,
+                                        child: const Icon(Icons.arrow_downward, color: Colors.black, size: 22),
+                                      ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            merchant,
+                                            style: ThemeService.getAppTextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: itemTextColor,
+                                            ),
+                                          ),
+                                          Text(
+                                            '$dateStr${notes.isNotEmpty ? ' • $notes' : ''}',
+                                            style: ThemeService.getAppTextStyle(
+                                              fontSize: 16,
+                                              color: itemSubTextColor,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    Text(
+                                      '-\$$amount',
+                                      style: ThemeService.getAppTextStyle(
+                                        fontSize: 22,
+                                        fontWeight: FontWeight.bold,
+                                        color: currentTheme == AppThemeOption.cyberpunk2077 ||
+                                            currentTheme == AppThemeOption.edgerunners
+                                            ? const Color(0xFFFF0055)
+                                            : Colors.redAccent,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             );
-                          }).toList(),
+                          }),
                         ],
                       );
                     },

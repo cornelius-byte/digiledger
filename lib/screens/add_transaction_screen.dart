@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../database/database_helper.dart';
 import '../services/theme_service.dart';
+import 'transaction_history_screen.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({super.key});
@@ -94,7 +95,27 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Expense saved locally!')),
+        SnackBar(
+          content: Text(
+            'Expense saved!',
+            style: ThemeService.getAppTextStyle(fontSize: 16, color: Colors.white),
+          ),
+          duration: const Duration(seconds: 4),
+          action: SnackBarAction(
+            label: 'OPEN',
+            textColor: ThemeService.currentTheme.value == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF00F0FF)
+                : const Color(0xFFB5E48C),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const TransactionHistoryScreen(),
+                ),
+              );
+            },
+          ),
+        ),
       );
       _amountController.clear();
       _merchantController.clear();
@@ -453,7 +474,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<int>(
-                                      value: _selectedCategoryId,
+                                      initialValue: _selectedCategoryId,
                                       dropdownColor: isDark ? const Color(0xFF282836) : Colors.white,
                                       style: ThemeService.getAppTextStyle(
                                         fontSize: 20,

@@ -47,6 +47,256 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<bool> _showDeleteConfirmationDialog({required String title, required String content}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (dialogContext, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final borderColor = ThemeService.getBorderColor();
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : const Color(0xFF282836))
+                : Colors.white;
+
+            final textColor = ThemeService.getTextColorForBackground(cardBgColor);
+
+            return AlertDialog(
+              backgroundColor: cardBgColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: borderColor, width: 2.0),
+              ),
+              title: Text(
+                title,
+                style: ThemeService.getAppTextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              content: Text(
+                content,
+                style: ThemeService.getAppTextStyle(
+                  fontSize: 17,
+                  color: textColor.withValues(alpha: 0.9),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext, false),
+                  child: Text('Cancel', style: ThemeService.getAppTextStyle(fontSize: 17)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                  ),
+                  onPressed: () => Navigator.pop(dialogContext, true),
+                  child: Text(
+                    'Delete',
+                    style: ThemeService.getAppTextStyle(fontSize: 17, color: Colors.white),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    return result ?? false;
+  }
+
+  void _showTransactionContextMenu(Map<String, dynamic> tx) {
+    final int txId = (tx['transaction_id'] as num?)?.toInt() ?? 0;
+    final String currentMerchant = tx['merchant'] ?? 'Unknown';
+    final double currentAmount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (modalContext, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final borderColor = ThemeService.getBorderColor();
+            final shadowColor = ThemeService.getShadowColor();
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : const Color(0xFF282836))
+                : const Color(0xFFFFC6C7);
+
+            final textColor = ThemeService.getTextColorForBackground(cardBgColor);
+
+            return Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardBgColor,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: borderColor, width: 2.0),
+                boxShadow: [
+                  BoxShadow(
+                    color: shadowColor,
+                    offset: const Offset(4, 4),
+                    blurRadius: 0,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Expense Options',
+                    style: ThemeService.getAppTextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    leading: const Icon(Icons.edit, color: Colors.blueAccent),
+                    title: Text(
+                      'Edit Expense',
+                      style: ThemeService.getAppTextStyle(
+                        fontSize: 20,
+                        color: textColor,
+                      ),
+                    ),
+                    onTap: () {
+                      Navigator.pop(modalContext);
+                      _showEditExpenseDialog(txId, currentMerchant, currentAmount);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.delete, color: Colors.redAccent),
+                    title: Text(
+                      'Delete Expense',
+                      style: ThemeService.getAppTextStyle(
+                        fontSize: 20,
+                        color: textColor,
+                      ),
+                    ),
+                    onTap: () async {
+                      Navigator.pop(modalContext);
+                      final confirmed = await _showDeleteConfirmationDialog(
+                        title: 'Delete Expense?',
+                        content: 'Are you sure you want to delete this expense for "$currentMerchant"? This action cannot be undone.',
+                      );
+                      if (confirmed) {
+                        await DatabaseHelper.instance.deleteTransaction(txId);
+                        await _loadDashboardData();
+                      }
+                    },
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditExpenseDialog(int txId, String merchant, double amount) {
+    final TextEditingController amountController =
+    TextEditingController(text: amount.toStringAsFixed(2));
+    final TextEditingController merchantController =
+    TextEditingController(text: merchant);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (dialogContext, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final borderColor = ThemeService.getBorderColor();
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : const Color(0xFF282836))
+                : Colors.white;
+
+            final textColor = ThemeService.getTextColorForBackground(cardBgColor);
+
+            return AlertDialog(
+              backgroundColor: cardBgColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(24),
+                side: BorderSide(color: borderColor, width: 2.0),
+              ),
+              title: Text(
+                'Edit Expense',
+                style: ThemeService.getAppTextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: amountController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: ThemeService.getAppTextStyle(fontSize: 20, color: textColor),
+                    decoration: InputDecoration(
+                      labelText: 'Amount (\$)',
+                      labelStyle: ThemeService.getAppTextStyle(fontSize: 18, color: textColor),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: merchantController,
+                    style: ThemeService.getAppTextStyle(fontSize: 20, color: textColor),
+                    decoration: InputDecoration(
+                      labelText: 'Merchant Name',
+                      labelStyle: ThemeService.getAppTextStyle(fontSize: 18, color: textColor),
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text('Cancel', style: ThemeService.getAppTextStyle(fontSize: 18)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFFC6C7)),
+                  onPressed: () async {
+                    final newAmount = double.tryParse(amountController.text) ?? amount;
+                    final newMerchant = merchantController.text.trim().isEmpty
+                        ? merchant
+                        : merchantController.text.trim();
+
+                    await DatabaseHelper.instance.updateTransaction(
+                      txId,
+                      newAmount,
+                      newMerchant,
+                    );
+                    if (dialogContext.mounted) {
+                      Navigator.pop(dialogContext);
+                    }
+                    await _loadDashboardData();
+                  },
+                  child: Text('Save', style: ThemeService.getAppTextStyle(fontSize: 18, color: Colors.black)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<AppThemeOption>(
@@ -405,76 +655,81 @@ class _HomeScreenState extends State<HomeScreen> {
                             final dateStr = tx['date'] != null ? tx['date'].toString().split('T')[0] : '';
                             final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
 
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: itemBgColor,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: borderColor, width: 1.8),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: shadowColor,
-                                    offset: const Offset(2, 2),
-                                    blurRadius: 0,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    backgroundColor: currentTheme == AppThemeOption.lalaland
-                                        ? const Color(0xFFB59424)
-                                        : const Color(0xFFFFC6C7),
-                                    radius: 20,
-                                    child: Icon(
-                                      Icons.arrow_downward,
-                                      color: currentTheme == AppThemeOption.lalaland ? Colors.white : Colors.black,
-                                      size: 22,
+                            return InkWell(
+                              onTap: () {},
+                              onLongPress: () => _showTransactionContextMenu(tx),
+                              borderRadius: BorderRadius.circular(16),
+                              child: Container(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: itemBgColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(color: borderColor, width: 1.8),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: shadowColor,
+                                      offset: const Offset(2, 2),
+                                      blurRadius: 0,
                                     ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          merchant,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                          style: ThemeService.getAppTextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: itemTextColor,
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      backgroundColor: currentTheme == AppThemeOption.lalaland
+                                          ? const Color(0xFFB59424)
+                                          : const Color(0xFFFFC6C7),
+                                      radius: 20,
+                                      child: Icon(
+                                        Icons.arrow_downward,
+                                        color: currentTheme == AppThemeOption.lalaland ? Colors.white : Colors.black,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            merchant,
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                            style: ThemeService.getAppTextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: itemTextColor,
+                                            ),
                                           ),
-                                        ),
-                                        Text(
-                                          dateStr,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines: 1,
-                                          style: ThemeService.getAppTextStyle(
-                                            fontSize: 14,
-                                            color: itemSubTextColor,
+                                          Text(
+                                            dateStr,
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                            style: ThemeService.getAppTextStyle(
+                                              fontSize: 14,
+                                              color: itemSubTextColor,
+                                            ),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    '-\$${amount.toStringAsFixed(2)}',
-                                    style: ThemeService.getAppTextStyle(
-                                      fontSize: 19,
-                                      fontWeight: FontWeight.bold,
-                                      color: currentTheme == AppThemeOption.cyberpunk2077 ||
-                                          currentTheme == AppThemeOption.edgerunners
-                                          ? const Color(0xFFFF0055)
-                                          : (currentTheme == AppThemeOption.lalaland
-                                          ? const Color(0xFFFFD166)
-                                          : Colors.redAccent),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      '-\$${amount.toStringAsFixed(2)}',
+                                      style: ThemeService.getAppTextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.bold,
+                                        color: currentTheme == AppThemeOption.cyberpunk2077 ||
+                                            currentTheme == AppThemeOption.edgerunners
+                                            ? const Color(0xFFFF0055)
+                                            : (currentTheme == AppThemeOption.lalaland
+                                            ? const Color(0xFFFFD166)
+                                            : Colors.redAccent),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             );
                           },

@@ -164,6 +164,42 @@ class DatabaseHelper {
     return await db.insert('transactions', row);
   }
 
+  // Update transaction amount and merchant
+  Future<int> updateTransaction(int id, double amount, String merchant) async {
+    final db = await database;
+    return await db.update(
+      'transactions',
+      {
+        'amount': amount,
+        'merchant': merchant,
+      },
+      where: 'transaction_id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Delete single transaction
+  Future<int> deleteTransaction(int id) async {
+    final db = await database;
+    return await db.delete(
+      'transactions',
+      where: 'transaction_id = ?',
+      whereArgs: [id],
+    );
+  }
+
+  // Delete multiple transactions simultaneously
+  Future<int> deleteMultipleTransactions(List<int> ids) async {
+    if (ids.isEmpty) return 0;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    return await db.delete(
+      'transactions',
+      where: 'transaction_id IN ($placeholders)',
+      whereArgs: ids,
+    );
+  }
+
   // Get all transactions
   Future<List<Map<String, dynamic>>> getAllTransactions() async {
     final db = await instance.database;
@@ -207,7 +243,7 @@ class DatabaseHelper {
     // Loop through rows and format as CSV text
     for (var row in maps) {
       rows.add(
-        '${row['transaction_id'] ?? row['id']},${row['amount']},${row['type']},${row['date']},'
+        '${row['transaction_id']},${row['amount']},${row['type']},${row['date']},'
         '"${row['merchant'] ?? ''}","${row['notes'] ?? ''}",${row['category_id']}'
       );
     }

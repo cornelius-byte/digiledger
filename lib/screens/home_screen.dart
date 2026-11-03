@@ -99,12 +99,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Digiledger Dashboard',
-                          style: ThemeService.getAppTextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: ThemeService.getTextColorForBackground(headerPillColor),
+                        Expanded(
+                          child: Text(
+                            'Digiledger Dashboard',
+                            overflow: TextOverflow.ellipsis,
+                            style: ThemeService.getAppTextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: ThemeService.getTextColorForBackground(headerPillColor),
+                            ),
                           ),
                         ),
                         IconButton(
@@ -148,17 +151,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
-                          '-\$${_totalExpenses.toStringAsFixed(2)}',
-                          style: ThemeService.getAppTextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.bold,
-                            color: currentTheme == AppThemeOption.cyberpunk2077 ||
-                                currentTheme == AppThemeOption.edgerunners
-                                ? const Color(0xFFFF0055)
-                                : (currentTheme == AppThemeOption.lalaland
-                                ? const Color(0xFFFFD166)
-                                : Colors.redAccent),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '-\$${_totalExpenses.toStringAsFixed(2)}',
+                            style: ThemeService.getAppTextStyle(
+                              fontSize: 34,
+                              fontWeight: FontWeight.bold,
+                              color: currentTheme == AppThemeOption.cyberpunk2077 ||
+                                  currentTheme == AppThemeOption.edgerunners
+                                  ? const Color(0xFFFF0055)
+                                  : (currentTheme == AppThemeOption.lalaland
+                                  ? const Color(0xFFFFD166)
+                                  : Colors.redAccent),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -169,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 'Offline-first & local SQLite storage',
                                 style: ThemeService.getAppTextStyle(
-                                  fontSize: 16,
+                                  fontSize: 15,
                                   color: cardTextColor,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -211,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         Text(
                           'Quick Access',
                           style: ThemeService.getAppTextStyle(
-                            fontSize: 24,
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
                             color: isDark
                                 ? (currentTheme == AppThemeOption.cyberpunk2077
@@ -227,9 +234,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisCount: 2,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          childAspectRatio: 2.3,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                          childAspectRatio: 2.2,
                           children: [
                             _buildNavButton(
                               context,
@@ -318,18 +325,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Recent Expenses',
-                              style: ThemeService.getAppTextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: isDark
-                                    ? (currentTheme == AppThemeOption.cyberpunk2077
-                                    ? const Color(0xFFFF003C)
-                                    : (currentTheme == AppThemeOption.lalaland
-                                    ? const Color(0xFFFFF3BF)
-                                    : Colors.white))
-                                    : Colors.black,
+                            Expanded(
+                              child: Text(
+                                'Recent Expenses',
+                                overflow: TextOverflow.ellipsis,
+                                style: ThemeService.getAppTextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark
+                                      ? (currentTheme == AppThemeOption.cyberpunk2077
+                                      ? const Color(0xFFFF003C)
+                                      : (currentTheme == AppThemeOption.lalaland
+                                      ? const Color(0xFFFFF3BF)
+                                      : Colors.white))
+                                      : Colors.black,
+                                ),
                               ),
                             ),
                             TextButton(
@@ -344,7 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Text(
                                 'View All',
                                 style: ThemeService.getAppTextStyle(
-                                  fontSize: 18,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: currentTheme == AppThemeOption.cyberpunk2077 ||
                                       currentTheme == AppThemeOption.edgerunners
@@ -367,7 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               'No expenses recorded yet.\nTap "Add Expense" to get started!',
                               textAlign: TextAlign.center,
                               style: ThemeService.getAppTextStyle(
-                                fontSize: 18,
+                                fontSize: 16,
                                 color: isDark ? Colors.white70 : Colors.black54,
                               ),
                             ),
@@ -430,26 +440,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                       children: [
                                         Text(
                                           merchant,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
                                           style: ThemeService.getAppTextStyle(
-                                            fontSize: 20,
+                                            fontSize: 18,
                                             fontWeight: FontWeight.bold,
                                             color: itemTextColor,
                                           ),
                                         ),
                                         Text(
                                           dateStr,
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
                                           style: ThemeService.getAppTextStyle(
-                                            fontSize: 16,
+                                            fontSize: 14,
                                             color: itemSubTextColor,
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     '-\$${amount.toStringAsFixed(2)}',
                                     style: ThemeService.getAppTextStyle(
-                                      fontSize: 22,
+                                      fontSize: 19,
                                       fontWeight: FontWeight.bold,
                                       color: currentTheme == AppThemeOption.cyberpunk2077 ||
                                           currentTheme == AppThemeOption.edgerunners
@@ -496,7 +511,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
@@ -511,15 +526,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 22, color: textColor),
-            const SizedBox(width: 6),
+            Icon(icon, size: 20, color: textColor),
+            const SizedBox(width: 4),
             Flexible(
               child: Text(
                 title,
                 overflow: TextOverflow.ellipsis,
+                maxLines: 1,
                 style: ThemeService.getAppTextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),
@@ -564,7 +581,7 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
         decoration: BoxDecoration(
           color: color,
           borderRadius: BorderRadius.circular(16),
@@ -579,15 +596,17 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.download, size: 22, color: textColor),
-            const SizedBox(width: 6),
+            Icon(Icons.download, size: 20, color: textColor),
+            const SizedBox(width: 4),
             Flexible(
               child: Text(
                 'Export CSV',
                 overflow: TextOverflow.ellipsis,
+                maxLines: 1,
                 style: ThemeService.getAppTextStyle(
-                  fontSize: 16,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),

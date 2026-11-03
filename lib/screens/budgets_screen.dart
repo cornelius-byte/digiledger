@@ -110,38 +110,40 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
             'Configure $_selectedBudgetInterval Budget',
             style: ThemeService.getAppTextStyle(fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _budgetController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                style: ThemeService.getAppTextStyle(fontSize: 18),
-                decoration: InputDecoration(
-                  labelText: 'Budget Limit (\$)',
-                  labelStyle: ThemeService.getAppTextStyle(fontSize: 16),
-                  border: const OutlineInputBorder(),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: _budgetController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  style: ThemeService.getAppTextStyle(fontSize: 18),
+                  decoration: InputDecoration(
+                    labelText: 'Budget Limit (\$)',
+                    labelStyle: ThemeService.getAppTextStyle(fontSize: 16),
+                    border: const OutlineInputBorder(),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text('Warning Threshold:', style: ThemeService.getAppTextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [25, 50, 75, 90].map((pct) {
-                  return ChoiceChip(
-                    label: Text('$pct%', style: ThemeService.getAppTextStyle(fontSize: 16)),
-                    selected: tempThreshold == pct,
-                    onSelected: (selected) {
-                      setDialogState(() {
-                        tempThreshold = pct;
-                      });
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
+                const SizedBox(height: 16),
+                Text('Warning Threshold:', style: ThemeService.getAppTextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [25, 50, 75, 90].map((pct) {
+                    return ChoiceChip(
+                      label: Text('$pct%', style: ThemeService.getAppTextStyle(fontSize: 16)),
+                      selected: tempThreshold == pct,
+                      onSelected: (selected) {
+                        setDialogState(() {
+                          tempThreshold = pct;
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -236,12 +238,16 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       ),
                     ],
                   ),
-                  child: Text(
-                    'Budget Management',
-                    style: ThemeService.getAppTextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: ThemeService.getTextColorForBackground(headerPillColor),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Budget Management',
+                      style: ThemeService.getAppTextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: ThemeService.getTextColorForBackground(headerPillColor),
+                      ),
                     ),
                   ),
                 ),
@@ -255,7 +261,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                       Text(
                         'Budget Type: ',
                         style: ThemeService.getAppTextStyle(
-                          fontSize: 20,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: isDark ? Colors.white : Colors.black,
                         ),
@@ -266,7 +272,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           label: Text(
                             interval,
                             style: ThemeService.getAppTextStyle(
-                              fontSize: 16,
+                              fontSize: 15,
                               fontWeight: FontWeight.bold,
                               color: _selectedBudgetInterval == interval
                                   ? Colors.black
@@ -317,7 +323,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                             child: Text(
                               '$_selectedBudgetInterval Budget Limit ($_warningThresholdPercentage% Alert)',
                               style: ThemeService.getAppTextStyle(
-                                fontSize: 16,
+                                fontSize: 15,
                                 fontWeight: FontWeight.bold,
                                 color: secondaryTextColor,
                               ),
@@ -331,23 +337,26 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           ),
                         ],
                       ),
-                      Text(
-                        '\$${_budgetLimit.toStringAsFixed(2)}',
-                        style: ThemeService.getAppTextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: cardTextColor,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '\$${_budgetLimit.toStringAsFixed(2)}',
+                          style: ThemeService.getAppTextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: cardTextColor,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
-                      // Spent and Remaining laid out cleanly to prevent any horizontal overflow
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Spent: -\$${_totalSpent.toStringAsFixed(2)}',
                             style: ThemeService.getAppTextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: isOverBudget ? Colors.redAccent : cardTextColor,
                             ),
@@ -357,7 +366,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           Text(
                             'Remaining: \$${(_budgetLimit - _totalSpent).toStringAsFixed(2)}',
                             style: ThemeService.getAppTextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.bold,
                               color: cardTextColor,
                             ),
@@ -384,7 +393,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           style: ThemeService.getAppTextStyle(
                             color: Colors.redAccent,
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 15,
                           ),
                         ),
                       ] else if (isThresholdCrossed) ...[
@@ -394,7 +403,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                           style: ThemeService.getAppTextStyle(
                             color: isDark ? Colors.amberAccent : Colors.orange[800],
                             fontWeight: FontWeight.bold,
-                            fontSize: 16,
+                            fontSize: 15,
                           ),
                         ),
                       ]
@@ -438,7 +447,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                   child: Text(
                     '• Budgets are stored securely in your local SQLite database table.\n• Each interval maintains its own independent limit and warning threshold.',
                     style: ThemeService.getAppTextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       color: isDark ? Colors.white70 : Colors.black87,
                     ),
                   ),

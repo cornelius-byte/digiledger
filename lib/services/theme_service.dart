@@ -253,7 +253,7 @@ class ThemeService {
 
       case AppThemeOption.mint:
         return ThemeData(
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
           scaffoldBackgroundColor: const Color(0xFFD0F4DE),
           colorScheme: const ColorScheme.light(
             primary: Color(0xFFBCE6FF),
@@ -269,7 +269,7 @@ class ThemeService {
 
       case AppThemeOption.sunset:
         return ThemeData(
-          brightness: Brightness.dark,
+          brightness: Brightness.light,
           scaffoldBackgroundColor: const Color(0xFFE8A87C),
           colorScheme: const ColorScheme.light(
             primary: Color(0xFFFFC6C7),

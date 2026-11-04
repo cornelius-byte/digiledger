@@ -112,12 +112,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           onPressed: () => Navigator.pop(context),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          'Categories',
-                          style: ThemeService.getAppTextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.bold,
-                            color: ThemeService.getTextColorForBackground(headerPillColor),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Categories',
+                              style: ThemeService.getAppTextStyle(
+                                fontSize: 26,
+                                fontWeight: FontWeight.bold,
+                                color: ThemeService.getTextColorForBackground(headerPillColor),
+                              ),
+                            ),
                           ),
                         ),
                       ],

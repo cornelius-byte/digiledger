@@ -412,29 +412,30 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                       ],
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(
-                                _isSelectionMode ? Icons.close : Icons.arrow_back,
-                                color: ThemeService.getTextColorForBackground(headerPillColor),
-                                size: 26,
-                              ),
-                              onPressed: () {
-                                if (_isSelectionMode) {
-                                  setState(() {
-                                    _isSelectionMode = false;
-                                    _selectedTxIds.clear();
-                                  });
-                                } else {
-                                  Navigator.pop(context);
-                                }
-                              },
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
+                        IconButton(
+                          icon: Icon(
+                            _isSelectionMode ? Icons.close : Icons.arrow_back,
+                            color: ThemeService.getTextColorForBackground(headerPillColor),
+                            size: 26,
+                          ),
+                          onPressed: () {
+                            if (_isSelectionMode) {
+                              setState(() {
+                                _isSelectionMode = false;
+                                _selectedTxIds.clear();
+                              });
+                            } else {
+                              Navigator.pop(context);
+                            }
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
                               _isSelectionMode
                                   ? '${_selectedTxIds.length} Selected'
                                   : 'Transaction History',
@@ -444,9 +445,11 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                 color: ThemeService.getTextColorForBackground(headerPillColor),
                               ),
                             ),
-                          ],
+                          ),
                         ),
+                        const SizedBox(width: 4),
                         Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             if (_isSelectionMode && _selectedTxIds.isNotEmpty)
                               IconButton(

@@ -52,12 +52,18 @@ class AnalyticsScreen extends StatelessWidget {
                                 onPressed: () => Navigator.pop(context),
                               ),
                               const SizedBox(width: 8),
-                              Text(
-                                'Analytics',
-                                style: ThemeService.getAppTextStyle(
-                                  fontSize: 26,
-                                  fontWeight: FontWeight.bold,
-                                  color: ThemeService.getTextColorForBackground(headerPillColor),
+                              Expanded(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'Analytics',
+                                    style: ThemeService.getAppTextStyle(
+                                      fontSize: 26,
+                                      fontWeight: FontWeight.bold,
+                                      color: ThemeService.getTextColorForBackground(headerPillColor),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],

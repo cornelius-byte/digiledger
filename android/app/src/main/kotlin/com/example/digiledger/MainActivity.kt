@@ -20,7 +20,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "getInboxSms" -> {
                     try {
-                        val limit = (call.argument<Any>("limit") as? Number)?.toInt() ?: 1000
+                        val limit = (call.argument<Any>("limit") as? Number)?.toInt() ?: 5000
                         val sinceTimestamp = (call.argument<Any>("sinceTimestamp") as? Number)?.toLong() ?: 0L
                         val smsList = queryInboxSms(limit, sinceTimestamp)
                         result.success(smsList)

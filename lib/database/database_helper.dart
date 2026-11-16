@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -152,7 +153,45 @@ class DatabaseHelper {
     ''');
   }
 
-  // --- SETTINGS PREFERENCES ---
+  // --- SETTINGS PREFERENCES & BUDGET INTERVAL ---
+  static final ValueNotifier<String> activeBudgetInterval = ValueNotifier<String>('Monthly');
+
+  /// Checks whether a given transaction date falls within the specified budget interval period (Weekly, Monthly, Yearly).
+  static bool isDateInBudgetInterval(DateTime date, String interval, {DateTime? refDate}) {
+    final now = refDate ?? DateTime.now();
+
+    DateTime startOfDay(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
+
+    if (interval == 'Weekly') {
+      int daysSinceSunday = now.weekday % 7;
+      DateTime startOfWeek = startOfDay(now).subtract(Duration(days: daysSinceSunday));
+      DateTime endOfWeek = startOfWeek.add(const Duration(days: 7));
+      DateTime txDateOnly = startOfDay(date);
+      return !txDateOnly.isBefore(startOfWeek) && txDateOnly.isBefore(endOfWeek);
+    } else if (interval == 'Yearly') {
+      return date.year == now.year;
+    } else {
+      // Default: 'Monthly'
+      return date.year == now.year && date.month == now.month;
+    }
+  }
+
+  /// Initializes active budget interval notifier from database settings.
+  Future<void> initActiveBudgetInterval() async {
+    final saved = await getSetting('active_budget_interval');
+    if (saved != null && ['Weekly', 'Monthly', 'Yearly'].contains(saved)) {
+      activeBudgetInterval.value = saved;
+    } else {
+      activeBudgetInterval.value = 'Monthly';
+    }
+  }
+
+  /// Updates active budget interval in setting and triggers listeners.
+  Future<void> setActiveBudgetInterval(String interval) async {
+    await saveSetting('active_budget_interval', interval);
+    activeBudgetInterval.value = interval;
+  }
+
   Future<void> saveSetting(String key, String value) async {
     final db = await database;
     await db.insert(
@@ -211,6 +250,7 @@ class DatabaseHelper {
   }
 
   // Check if a transaction is already recorded (prevents duplicate imports from SMS)
+  // When referenceId (Refno) is present, uniqueness is strictly determined by Refno to allow multiple valid payments on the same date/amount.
   Future<bool> isTransactionDuplicate({
     required double amount,
     required String date,
@@ -222,9 +262,10 @@ class DatabaseHelper {
       final refCheck = await db.query(
         'transactions',
         where: 'notes LIKE ?',
-        whereArgs: ['%$referenceId%'],
+        whereArgs: ['%${referenceId.trim()}%'],
       );
       if (refCheck.isNotEmpty) return true;
+      return false;
     }
 
     final existing = await db.query(

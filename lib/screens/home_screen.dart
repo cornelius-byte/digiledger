@@ -26,6 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadDashboardData();
     SmsService.newTransactionsCount.addListener(_onNewSmsTransaction);
+    DatabaseHelper.activeBudgetInterval.addListener(_onActiveIntervalChanged);
   }
 
   void _onNewSmsTransaction() {
@@ -34,9 +35,16 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onActiveIntervalChanged() {
+    if (mounted) {
+      _loadDashboardData();
+    }
+  }
+
   @override
   void dispose() {
     SmsService.newTransactionsCount.removeListener(_onNewSmsTransaction);
+    DatabaseHelper.activeBudgetInterval.removeListener(_onActiveIntervalChanged);
     super.dispose();
   }
 
@@ -44,6 +52,9 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _isLoading = true);
 
     try {
+      await DatabaseHelper.instance.initActiveBudgetInterval();
+      final activeInterval = DatabaseHelper.activeBudgetInterval.value;
+
       final transactions = await DatabaseHelper.instance.getFilteredTransactions();
       final categoriesData = await DatabaseHelper.instance.getCategories();
 
@@ -51,7 +62,15 @@ class _HomeScreenState extends State<HomeScreen> {
       for (var tx in transactions) {
         final type = (tx['type'] as String? ?? 'Expense').toLowerCase();
         if (type == 'income') continue;
-        sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+
+        final dateStr = tx['date'] as String?;
+        if (dateStr == null) continue;
+        final dateParsed = DateTime.tryParse(dateStr);
+        if (dateParsed == null) continue;
+
+        if (DatabaseHelper.isDateInBudgetInterval(dateParsed.toLocal(), activeInterval)) {
+          sum += (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        }
       }
 
       setState(() {
@@ -535,67 +554,72 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 20),
 
                   // 2. Total Tracked Expenses Summary Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: cardBgColor,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: borderColor, width: 2.0),
-                      boxShadow: [
-                        BoxShadow(
-                          color: shadowColor,
-                          offset: const Offset(4, 4),
-                          blurRadius: 0,
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Total Tracked Expenses',
-                          style: ThemeService.getAppTextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: secondaryTextColor,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            '-\$${_totalExpenses.toStringAsFixed(2)}'.replaceAll('\$', CurrencyService.symbol),
-                            style: ThemeService.getAppTextStyle(
-                              fontSize: 34,
-                              fontWeight: FontWeight.bold,
-                              color: currentTheme == AppThemeOption.cyberpunk2077 ||
-                                  currentTheme == AppThemeOption.edgerunners
-                                  ? const Color(0xFFFF0055)
-                                  : (currentTheme == AppThemeOption.lalaland
-                                  ? const Color(0xFFFFD166)
-                                  : Colors.redAccent),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Text('🔒 ', style: TextStyle(fontSize: 14)),
-                            Expanded(
-                              child: Text(
-                                'Offline-first & local SQLite storage',
-                                style: ThemeService.getAppTextStyle(
-                                  fontSize: 15,
-                                  color: cardTextColor,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                  ValueListenableBuilder<String>(
+                    valueListenable: DatabaseHelper.activeBudgetInterval,
+                    builder: (context, activeInterval, _) {
+                      return Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: cardBgColor,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: borderColor, width: 2.0),
+                          boxShadow: [
+                            BoxShadow(
+                              color: shadowColor,
+                              offset: const Offset(4, 4),
+                              blurRadius: 0,
                             ),
                           ],
                         ),
-                      ],
-                    ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Total Tracked Expenses ($activeInterval)',
+                              style: ThemeService.getAppTextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: secondaryTextColor,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '-\$${_totalExpenses.toStringAsFixed(2)}'.replaceAll('\$', CurrencyService.symbol),
+                                style: ThemeService.getAppTextStyle(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.bold,
+                                  color: currentTheme == AppThemeOption.cyberpunk2077 ||
+                                      currentTheme == AppThemeOption.edgerunners
+                                      ? const Color(0xFFFF0055)
+                                      : (currentTheme == AppThemeOption.lalaland
+                                      ? const Color(0xFFFFD166)
+                                      : Colors.redAccent),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Text('📅 ', style: TextStyle(fontSize: 14)),
+                                Expanded(
+                                  child: Text(
+                                    'Current $activeInterval expenditure • Resets next $activeInterval',
+                                    style: ThemeService.getAppTextStyle(
+                                      fontSize: 15,
+                                      color: cardTextColor,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 16),
 

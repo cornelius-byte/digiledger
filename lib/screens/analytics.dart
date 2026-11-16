@@ -137,9 +137,23 @@ class _ChartsTabState extends State<ChartsTab> {
   void initState() {
     super.initState();
     _loadData();
+    DatabaseHelper.activeBudgetInterval.addListener(_onActiveIntervalChanged);
+  }
+
+  void _onActiveIntervalChanged() {
+    if (mounted) {
+      _loadData();
+    }
+  }
+
+  @override
+  void dispose() {
+    DatabaseHelper.activeBudgetInterval.removeListener(_onActiveIntervalChanged);
+    super.dispose();
   }
 
   Future<void> _loadData() async {
+    await DatabaseHelper.instance.initActiveBudgetInterval();
     final cats = await DatabaseHelper.instance.getCategories();
     final txs = await DatabaseHelper.instance.getFilteredTransactions();
     setState(() {
@@ -158,31 +172,44 @@ class _ChartsTabState extends State<ChartsTab> {
   Widget build(BuildContext context) {
     if (_isLoading) return const Center(child: CircularProgressIndicator());
 
-    return ValueListenableBuilder<AppThemeOption>(
-      valueListenable: ThemeService.currentTheme,
-      builder: (context, currentTheme, _) {
-        final isDark = ThemeService.isDarkOrCyber;
-        final shadowColor = ThemeService.getShadowColor();
-        final borderColor = ThemeService.getBorderColor();
+    return ValueListenableBuilder<String>(
+      valueListenable: DatabaseHelper.activeBudgetInterval,
+      builder: (context, activeInterval, _) {
+        return ValueListenableBuilder<AppThemeOption>(
+          valueListenable: ThemeService.currentTheme,
+          builder: (context, currentTheme, _) {
+            final isDark = ThemeService.isDarkOrCyber;
+            final shadowColor = ThemeService.getShadowColor();
+            final borderColor = ThemeService.getBorderColor();
 
-        final cardBgColor = isDark
-            ? (currentTheme == AppThemeOption.cyberpunk2077
-            ? const Color(0xFF1C050C)
-            : (currentTheme == AppThemeOption.edgerunners
-            ? const Color(0xFF161625)
-            : const Color(0xFF282836)))
-            : Colors.white;
+            final cardBgColor = isDark
+                ? (currentTheme == AppThemeOption.cyberpunk2077
+                ? const Color(0xFF1C050C)
+                : (currentTheme == AppThemeOption.edgerunners
+                ? const Color(0xFF161625)
+                : const Color(0xFF282836)))
+                : Colors.white;
 
-        final cardTextColor = ThemeService.getTextColorForBackground(cardBgColor);
+            final cardTextColor = ThemeService.getTextColorForBackground(cardBgColor);
 
-        double total = 0;
-        Map<int, double> catSpending = {};
-        for (var tx in _transactions) {
-          double amt = (tx['amount'] as num?)?.toDouble() ?? 0;
-          int catId = (tx['category_id'] as num?)?.toInt() ?? 0;
-          total += amt;
-          catSpending[catId] = (catSpending[catId] ?? 0) + amt;
-        }
+            double total = 0;
+            Map<int, double> catSpending = {};
+            for (var tx in _transactions) {
+              final type = (tx['type'] as String? ?? 'Expense').toLowerCase();
+              if (type == 'income') continue;
+
+              final dateStr = tx['date'] as String?;
+              if (dateStr == null) continue;
+              final dateParsed = DateTime.tryParse(dateStr);
+              if (dateParsed == null) continue;
+
+              if (DatabaseHelper.isDateInBudgetInterval(dateParsed.toLocal(), activeInterval)) {
+                double amt = (tx['amount'] as num?)?.toDouble() ?? 0;
+                int catId = (tx['category_id'] as num?)?.toInt() ?? 0;
+                total += amt;
+                catSpending[catId] = (catSpending[catId] ?? 0) + amt;
+              }
+            }
 
         final activeCategories = _categories.where((cat) {
           int id = (cat['category_id'] as num?)?.toInt() ?? 0;
@@ -228,7 +255,7 @@ class _ChartsTabState extends State<ChartsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Category Distribution',
+                      'Category Distribution ($activeInterval)',
                       style: ThemeService.getAppTextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -407,6 +434,8 @@ class _ChartsTabState extends State<ChartsTab> {
               ),
             ],
           ),
+        );
+          },
         );
       },
     );

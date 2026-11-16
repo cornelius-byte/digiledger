@@ -78,6 +78,30 @@ class _MainNavigationState extends State<MainNavigation> {
     Color unselectedColor;
 
     switch (currentTheme) {
+      case AppThemeOption.cleanModernFintech:
+        navBgColor = const Color(0xFFFFFFFF);
+        selectedColor = const Color(0xFF4F46E5);
+        unselectedColor = const Color(0xFF64748B);
+        break;
+
+      case AppThemeOption.sleekDark:
+        navBgColor = const Color(0xFF1E293B);
+        selectedColor = const Color(0xFF10B981);
+        unselectedColor = const Color(0xFF94A3B8);
+        break;
+
+      case AppThemeOption.orixFintech:
+        navBgColor = const Color(0xFF48426D);
+        selectedColor = const Color(0xFFF0C38E);
+        unselectedColor = const Color(0xFFC4BCDF);
+        break;
+
+      case AppThemeOption.minimalistEditorial:
+        navBgColor = const Color(0xFFFFFFFF);
+        selectedColor = const Color(0xFF1E293B);
+        unselectedColor = const Color(0xFF64748B);
+        break;
+
       case AppThemeOption.cyberpunk2077:
         navBgColor = const Color(0xFF1C050C);
         selectedColor = const Color(0xFFFF003C); // Cyber Red

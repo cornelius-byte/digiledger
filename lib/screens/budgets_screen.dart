@@ -20,6 +20,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
 
   final TextEditingController _budgetController = TextEditingController();
 
+  bool _isFirstLoad = true;
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +31,12 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
   Future<void> _loadBudgetFromDatabase() async {
     setState(() => _isLoading = true);
     try {
+      await DatabaseHelper.instance.initActiveBudgetInterval();
+      if (_isFirstLoad) {
+        _selectedBudgetInterval = DatabaseHelper.activeBudgetInterval.value;
+        _isFirstLoad = false;
+      }
+
       final savedBudget = await DatabaseHelper.instance.getBudget(_selectedBudgetInterval);
 
       if (savedBudget != null) {
@@ -43,11 +51,8 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
       double spent = 0.0;
       final now = DateTime.now();
 
-      DateTime startOfDay(DateTime dt) => DateTime(dt.year, dt.month, dt.day);
-
       int daysSinceSunday = now.weekday % 7;
-      DateTime startOfWeek = startOfDay(now).subtract(Duration(days: daysSinceSunday));
-      DateTime endOfWeek = startOfWeek.add(const Duration(days: 7));
+      DateTime startOfWeek = DateTime(now.year, now.month, now.day).subtract(Duration(days: daysSinceSunday));
 
       for (var tx in transactions) {
         final type = (tx['type'] as String? ?? 'Expense').toLowerCase();
@@ -57,23 +62,9 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
         if (dateStr == null) continue;
         final dateParsed = DateTime.tryParse(dateStr);
         if (dateParsed == null) continue;
-        final date = dateParsed.toLocal();
 
-        final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-        final txDateOnly = startOfDay(date);
-
-        if (_selectedBudgetInterval == 'Weekly') {
-          if (!txDateOnly.isBefore(startOfWeek) && txDateOnly.isBefore(endOfWeek)) {
-            spent += amount;
-          }
-        } else if (_selectedBudgetInterval == 'Monthly') {
-          if (date.year == now.year && date.month == now.month) {
-            spent += amount;
-          }
-        } else if (_selectedBudgetInterval == 'Yearly') {
-          if (date.year == now.year) {
-            spent += amount;
-          }
+        if (DatabaseHelper.isDateInBudgetInterval(dateParsed.toLocal(), _selectedBudgetInterval)) {
+          spent += (tx['amount'] as num?)?.toDouble() ?? 0.0;
         }
       }
 
@@ -329,6 +320,7 @@ class _BudgetsScreenState extends State<BudgetsScreen> {
                               : const Color(0xFFD0F4DE)),
                           onSelected: (selected) async {
                             if (!selected) return;
+                            await DatabaseHelper.instance.setActiveBudgetInterval(interval);
                             setState(() => _selectedBudgetInterval = interval);
                             await _loadBudgetFromDatabase();
                           },

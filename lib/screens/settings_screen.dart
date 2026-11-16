@@ -47,7 +47,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final headerPillColor = ThemeService.getHeaderPillColor();
 
         final Color cardBgColor;
-        if (currentTheme == AppThemeOption.cyberpunk2077) {
+        if (currentTheme == AppThemeOption.orixFintech) {
+          cardBgColor = ThemeService.getBigCardBackgroundColor();
+        } else if (currentTheme == AppThemeOption.cyberpunk2077) {
           cardBgColor = const Color(0xFF1C050C);
         } else if (currentTheme == AppThemeOption.edgerunners) {
           cardBgColor = const Color(0xFF16162A);
@@ -168,7 +170,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                           const SizedBox(height: 18),
 
-                          // 3. Budget Alert
+                          // 3. Active Budget Interval
+                          ValueListenableBuilder<String>(
+                            valueListenable: DatabaseHelper.activeBudgetInterval,
+                            builder: (context, activeInterval, _) {
+                              return _buildSettingRow(
+                                title: 'Budget Interval',
+                                buttonText: activeInterval,
+                                cardTextColor: cardTextColor,
+                                borderColor: borderColor,
+                                shadowColor: shadowColor,
+                                onTap: _showBudgetIntervalSelectionDialog,
+                              );
+                            },
+                          ),
+
+                          const SizedBox(height: 18),
+
+                          // 4. Budget Alert
                           _buildSettingRow(
                             title: 'Budget Alert',
                             buttonText: '$_budgetAlertPercentage%',
@@ -273,7 +292,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required Color shadowColor,
     required VoidCallback? onTap,
   }) {
-    final btnBgColor = cardTextColor == Colors.white ? const Color(0xFF1E1E2C) : Colors.white;
+    final btnBgColor = ThemeService.getSmallCardBackgroundColor();
     final btnTextColor = ThemeService.getTextColorForBackground(btnBgColor);
 
     return Row(
@@ -348,20 +367,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Select App Theme',
           style: ThemeService.getAppTextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: AppThemeOption.values.map((themeOption) {
+                return ListTile(
+                  title: Text(
+                    themeOption.displayName,
+                    style: ThemeService.getAppTextStyle(fontSize: 18),
+                  ),
+                  trailing: ThemeService.currentTheme.value == themeOption
+                      ? const Icon(Icons.check_circle, color: Colors.pink)
+                      : null,
+                  onTap: () {
+                    ThemeService.setTheme(themeOption);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showBudgetIntervalSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(
+          'Select Active Budget Interval',
+          style: ThemeService.getAppTextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          children: AppThemeOption.values.map((themeOption) {
+          children: ['Weekly', 'Monthly', 'Yearly'].map((interval) {
+            final isSelected = DatabaseHelper.activeBudgetInterval.value == interval;
             return ListTile(
               title: Text(
-                themeOption.displayName,
+                interval,
                 style: ThemeService.getAppTextStyle(fontSize: 18),
               ),
-              trailing: ThemeService.currentTheme.value == themeOption
-                  ? const Icon(Icons.check_circle, color: Colors.pink)
-                  : null,
-              onTap: () {
-                ThemeService.setTheme(themeOption);
-                Navigator.pop(context);
+              trailing: isSelected ? const Icon(Icons.check, color: Colors.pink) : null,
+              onTap: () async {
+                Navigator.pop(dialogContext);
+                await DatabaseHelper.instance.setActiveBudgetInterval(interval);
               },
             );
           }).toList(),

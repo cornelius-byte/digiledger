@@ -259,48 +259,46 @@ class SmsService {
     return addedCount;
   }
 
-  /// Verifies if an SMS is a financial transaction alert.
+  /// Verifies if an SMS is an expense transaction alert based on a strict 3-step filter:
+  /// 1. Whitelist: Must contain an explicit debit verb (debited, spent, paid, sent to, transferred to, purchased, withdrawn, deducted).
+  /// 2. Blacklist: Must NOT contain any incoming credit/recharge, promotional, or URL keywords.
+  /// 3. Validation: Must contain a valid monetary amount (whole number or decimal, with or without currency symbol).
   static bool isFinancialSms(String sender, String body) {
     final cleanBody = body.toLowerCase();
 
-    // 1. Filter out pure OTP / 2FA login verification codes without transaction context
-    final isPureOtp = RegExp(
-      r'\b(is\s+your\s+otp|use\s+otp|login\s+otp|verification\s+code|do\s+not\s+share\s+this\s+otp|secret\s+code)\b',
-    ).hasMatch(cleanBody);
-    final hasTransactionAction = RegExp(
-      r'\b(debited|credited|spent|paid|transferred|withdrawn|purchase|deducted)\b',
+    // 1. Enforce a Strict "Debit-Only" Whitelist
+    final hasDebitVerb = RegExp(
+      r'\b(debited|spent|paid|sent\s+to|transferred\s+to|transfer\s+to|purchased|purchase|withdrawn|deducted)\b',
+      caseSensitive: false,
     ).hasMatch(cleanBody);
 
-    if (isPureOtp && !hasTransactionAction) return false;
+    if (!hasDebitVerb) return false;
 
-    // 2. Filter out promotional ads, spam, plan expiration pitches
-    if (RegExp(
-      r'\b(recharge\s+now|plan\s+expiry|unlimited\s+calls|free\s+data|cashback\s+offer|win\s+up\s+to|apply\s+for\s+loan|pre-approved|coupon\s+code)\b',
-    ).hasMatch(cleanBody) && !hasTransactionAction) {
-      return false;
-    }
-
-    // 3. Must contain at least one primary transaction keyword
-    final hasTransactionKeyword = RegExp(
-      r'\b(debited|spent|paid|sent|withdrawn|purchase|transferred|deducted|charged|credited|deposited|received|refund|cashback|txn|upi|vpa|a\/c|acct|balance|bal)\b',
+    // 2. Broaden the Exclusion Blacklist (Block All Credits, Recharges, Offers & Links)
+    final hasBlacklistedTerm = RegExp(
+      r'\b(credited|received|deposited|refund|refunded|recharge|recharged|top\-?up|pack|packs|validity|data|cashback|offer|offers|reward|rewards|won|coupon|coupons|discount|discounts|upto|up\s+to|saved|click|claim|expires|valid\s+till)\b|https?:\/\/|www\.',
+      caseSensitive: false,
     ).hasMatch(cleanBody);
 
-    // 4. Must contain currency sign or currency keyword
-    final hasCurrency = RegExp(
-      r'(\₹|rs\.?|inr|\$|usd|€|eur|gbp|\£)',
-    ).hasMatch(cleanBody);
+    if (hasBlacklistedTerm) return false;
 
-    return hasTransactionKeyword && hasCurrency;
+    // 3. Must have a valid extractable monetary amount
+    final amount = _extractAmount(body);
+    if (amount == null || amount <= 0) return false;
+
+    return true;
   }
 
-  /// Parses financial SMS text into structured transaction fields.
+  /// Parses financial SMS text into structured transaction fields for expense entries.
   static ParsedSmsTransaction? parseSms(String sender, String body, {DateTime? date}) {
+    if (!isFinancialSms(sender, body)) return null;
+
     // 1. Extract Amount
     final double? amount = _extractAmount(body);
     if (amount == null || amount <= 0) return null;
 
-    // 2. Determine Transaction Type (Expense vs Income)
-    final String type = _extractType(body);
+    // 2. Determine Transaction Type (Strictly Expense)
+    const String type = 'Expense';
 
     // 3. Extract Merchant / Vendor Name
     final String merchant = _extractMerchant(sender, body);
@@ -332,10 +330,11 @@ class SmsService {
   }
 
   /// Extracts the monetary amount from the SMS body.
+  /// Supports both whole numbers (e.g., 150) and decimals (e.g., 20.00), with or without currency symbols.
   static double? _extractAmount(String body) {
-    // Pattern 1: Currency symbol or code followed by digits: ₹ 450.00, Rs.450, INR 1,250.50, $25
+    // Pattern 1: Currency symbol or code followed by digits: ₹ 450.00, Rs.450, INR 1,250.50, $25, Rs 150
     final currencyPattern = RegExp(
-      r'(?:[\$€£₹¥]|INR|RS\.?|USD|EUR|GBP)\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\b',
+      r'(?:[\$€£₹¥]|INR|RS\.?|USD|EUR|GBP)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\b',
       caseSensitive: false,
     );
     final match1 = currencyPattern.firstMatch(body);
@@ -344,9 +343,9 @@ class SmsService {
       if (parsed != null && parsed > 0) return parsed;
     }
 
-    // Pattern 2: Action keyword followed by amount: "debited by 500", "paid 250.00", "spent 120", "amt 450"
+    // Pattern 2: Action keyword followed by amount (without requiring currency symbol): "debited by 150", "debited by 20.00", "paid 250.00", "spent 120"
     final actionPattern = RegExp(
-      r'\b(?:debited(?:\s*by|\s*with)?|paid|spent|sent|credited(?:\s*by|\s*with)?|amount(?:\s*of)?|amt(?:\s*of)?)\s*(?:[A-Za-z]+|\₹|Rs\.?)?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\b',
+      r'\b(?:debited(?:\s*by|\s*with)?|paid|spent|sent|transferred|purchased|withdrawn|deducted|amount(?:\s*of)?|amt(?:\s*of)?)\s*(?:[A-Za-z]{1,4}|\₹|Rs\.?)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\b',
       caseSensitive: false,
     );
     final match2 = actionPattern.firstMatch(body);
@@ -355,9 +354,9 @@ class SmsService {
       if (parsed != null && parsed > 0) return parsed;
     }
 
-    // Pattern 3: "for INR 500" or "for Rs. 500" or "for 500"
+    // Pattern 3: "for INR 500" or "for Rs. 500" or "for 500" or "for 20.00"
     final forPattern = RegExp(
-      r'\bfor\s+(?:INR|RS\.?|\₹|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})+(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\b',
+      r'\bfor\s+(?:INR|RS\.?|\₹|\$)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)\b',
       caseSensitive: false,
     );
     final match3 = forPattern.firstMatch(body);
@@ -376,20 +375,8 @@ class SmsService {
     return double.tryParse(clean);
   }
 
-  /// Determines whether the SMS represents an Expense or Income.
+  /// Determines whether the SMS represents an Expense (strictly returns 'Expense').
   static String _extractType(String body) {
-    final lower = body.toLowerCase();
-    final isCredit = RegExp(
-      r'\b(credited(?:\s*to|\s*with)?|deposited|received\s+(?:from|in)|refund(?:ed)?|cashback)\b',
-    ).hasMatch(lower);
-
-    final isDebit = RegExp(
-      r'\b(debited(?:\s*from|\s*with)?|spent|paid\s+to|sent\s+to|withdrawn|purchase\s+at|deducted)\b',
-    ).hasMatch(lower);
-
-    if (isCredit && !isDebit) {
-      return 'Income';
-    }
     return 'Expense';
   }
 
@@ -471,9 +458,11 @@ class SmsService {
     }).join(' ');
   }
 
-  /// Maps bank sender shortcodes (e.g. VM-HDFCBK) to recognizable bank names.
+  /// Maps bank sender shortcodes (e.g. AD-SBIUPI, AX-SBIUPI-S, VM-HDFCBK-T) to recognizable bank names.
   static String _friendlySenderName(String sender) {
     final s = sender.toUpperCase();
+
+    // Check bank identifiers (supports senders with suffixes like -S, -T, etc.)
     if (s.contains('HDFC')) return 'HDFC Bank';
     if (s.contains('SBIPIN') || s.contains('SBIUPI') || s.contains('SBI')) return 'State Bank of India';
     if (s.contains('ICICI')) return 'ICICI Bank';
@@ -488,23 +477,46 @@ class SmsService {
     if (s.contains('PNB')) return 'Punjab National Bank';
     if (s.contains('INDUS')) return 'IndusInd Bank';
     if (s.contains('YESB')) return 'Yes Bank';
+    if (s.contains('CANARA') || s.contains('CANBNK')) return 'Canara Bank';
+    if (s.contains('UNION') || s.contains('UNIONB')) return 'Union Bank';
+    if (s.contains('IDBI')) return 'IDBI Bank';
+    if (s.contains('IDFC')) return 'IDFC First Bank';
+    if (s.contains('FEDERAL')) return 'Federal Bank';
+    if (s.contains('RBL')) return 'RBL Bank';
 
-    // If sender has hyphen like VM-HDFCBK or AD-AIRTEL, take the right part
+    // Extract core bank identifier from hyphenated shortcodes like AD-CANBNK-S or VM-FNCBNK-T
     if (sender.contains('-')) {
-      final suffix = sender.split('-').last.trim();
-      if (suffix.isNotEmpty) return suffix;
+      final parts = sender.split('-').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+      // Ignore 1-letter suffixes like S or T (Service/Transactional) and 2-letter operator prefixes
+      final mainPart = parts.firstWhere(
+        (p) => p.length > 2,
+        orElse: () => parts.last,
+      );
+      if (mainPart.isNotEmpty) {
+        return mainPart[0].toUpperCase() + (mainPart.length > 1 ? mainPart.substring(1).toLowerCase() : '');
+      }
     }
 
     return sender.trim().isNotEmpty ? sender.trim() : 'Bank Transaction';
   }
 
-  /// Extracts reference ID / UTR number from SMS body.
+  /// Extracts reference ID / UTR / Refno from SMS body.
   static String? _extractReferenceId(String body) {
+    // 1. Matches "UPI Ref 123456789", "UPI Ref No 123456789", "Ref. No. 123456789", "RefNo: 123456789", "Txn ID 123456789", "UTR 123456789"
     final refMatch = RegExp(
-      r'\b(?:UPI\s*Ref(?:\s*No)?|Ref(?:\s*No)?|Txn(?:\s*ID)?|UTR|Reference)\s*[:=\-]?\s*([A-Za-z0-9]+)\b',
+      r'\b(?:UPI\s*Ref(?:\.|\s)*(?:No\.?)?|Ref(?:\.|\s)*No\.?|RefNo|Txn(?:\.|\s)*(?:ID|No\.?)|UTR|Reference)\s*[:=\-]?\s*([A-Za-z0-9]+)\b',
       caseSensitive: false,
     ).firstMatch(body);
-    return refMatch?.group(1);
+    if (refMatch != null) return refMatch.group(1);
+
+    // 2. Matches "UPI/123456789012" or "IMPS/123456789012" or "UPI/DR/123456789012"
+    final slashMatch = RegExp(
+      r'\b(?:UPI|IMPS)(?:\/DR|\/CR)?\/([A-Za-z0-9]{8,18})\b',
+      caseSensitive: false,
+    ).firstMatch(body);
+    if (slashMatch != null) return slashMatch.group(1);
+
+    return null;
   }
 
   /// Extracts account ending digits (e.g. A/c ending 1234, A/C **8912, A/c XX1234).

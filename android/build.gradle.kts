@@ -31,6 +31,11 @@ subprojects {
             }
         }
     }
+    plugins.withId("com.android.library") {
+        extensions.findByType(com.android.build.gradle.LibraryExtension::class.java)?.let { ext ->
+            ext.externalNativeBuild.cmake.version = "3.22.1"
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {

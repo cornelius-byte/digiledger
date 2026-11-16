@@ -869,7 +869,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                   label: Text(
                                     interval,
                                     style: ThemeService.getAppTextStyle(
-                                      fontSize: 17,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                       color: _selectedInterval == interval
                                           ? Colors.black
@@ -877,6 +877,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                     ),
                                   ),
                                   selected: _selectedInterval == interval,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(50),
+                                    side: BorderSide(color: borderColor, width: 1.0),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   selectedColor: currentTheme == AppThemeOption.cyberpunk2077
                                       ? const Color(0xFFFF003C)
                                       : (currentTheme == AppThemeOption.edgerunners
@@ -905,7 +911,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                   label: Text(
                                     'All Categories',
                                     style: ThemeService.getAppTextStyle(
-                                      fontSize: 17,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.bold,
                                       color: _selectedCategoryId == 0
                                           ? Colors.black
@@ -913,6 +919,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                     ),
                                   ),
                                   selected: _selectedCategoryId == 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(50),
+                                    side: BorderSide(color: borderColor, width: 1.0),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   selectedColor: currentTheme == AppThemeOption.cyberpunk2077
                                       ? const Color(0xFFFF003C)
                                       : (currentTheme == AppThemeOption.edgerunners
@@ -931,11 +943,11 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
 
                                 return Padding(
                                   padding: const EdgeInsets.only(right: 8.0),
-                                  child: ChoiceChip(
+                                   child: ChoiceChip(
                                     label: Text(
                                       catName,
                                       style: ThemeService.getAppTextStyle(
-                                        fontSize: 17,
+                                        fontSize: 15,
                                         fontWeight: FontWeight.bold,
                                         color: isSelected
                                             ? Colors.black
@@ -943,6 +955,12 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                       ),
                                     ),
                                     selected: isSelected,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(50),
+                                      side: BorderSide(color: borderColor, width: 1.0),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                     selectedColor: currentTheme == AppThemeOption.cyberpunk2077
                                         ? const Color(0xFFFF003C)
                                         : (currentTheme == AppThemeOption.edgerunners
@@ -1075,16 +1093,20 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                         children: [
                                           Text(
                                             transactionName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: ThemeService.getAppTextStyle(
-                                              fontSize: 20,
+                                              fontSize: 18,
                                               fontWeight: FontWeight.bold,
                                               color: itemTextColor,
                                             ),
                                           ),
                                           Text(
                                             '$merchant${notes.isNotEmpty ? ' • $notes' : ''} • $dateStr',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
                                             style: ThemeService.getAppTextStyle(
-                                              fontSize: 16,
+                                              fontSize: 14,
                                               color: itemSubTextColor,
                                             ),
                                           ),
@@ -1092,9 +1114,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                                       ),
                                     ),
                                     Text(
-                                      '-\$$amount',
+                                      CurrencyService.formatNegative(amount),
                                       style: ThemeService.getAppTextStyle(
-                                        fontSize: 22,
+                                        fontSize: 19,
                                         fontWeight: FontWeight.bold,
                                         color: currentTheme == AppThemeOption.cyberpunk2077 ||
                                             currentTheme == AppThemeOption.edgerunners
